@@ -1163,7 +1163,7 @@ sub get_next_execution_time
   }
 }
 
-=item $cron->get_last_execution_time($cron_entry,[$ref_time])
+=item $cron->get_previous_execution_time($cron_entry,[$ref_time])
 
 Calculate the previous execution time from a specified crontab entry
 
@@ -1185,15 +1185,9 @@ C<$cron_entry>. By default, take the current time
 This method returns the number of epoch-seconds of the last matched
 date for C<$cron_entry>.
 
-Since I suspect, that this calculation of the last execution time might
-fail in some circumstances (bugs are lurking everywhere ;-) an
-additional interactive method C<bug()> is provided for checking
-crontab entries against your expected output. Refer to the
-top-level README for additional usage information for this method.
-
 =cut
 
-sub get_last_execution_time
+sub get_previous_execution_time
 {
   my $self = shift;
   my $cron_entry = shift;
@@ -1266,17 +1260,17 @@ sub get_last_execution_time
       # Special check for which time is lower (Month-day or Week-day spec):
       my @bak = @{$expanded[4]};
       $expanded[4] = [ '*' ];
-      my $t1 = $self->_calc_last_time($now,\@expanded);
+      my $t1 = $self->_calc_previous_time($now,\@expanded);
       $expanded[4] = \@bak;
       $expanded[2] = [ '*' ];
-      my $t2 = $self->_calc_last_time($now,\@expanded);
+      my $t2 = $self->_calc_previous_time($now,\@expanded);
       dbg "MDay : ",scalar(localtime($t1))," -- WDay : ",scalar(localtime($t2)) if $DEBUG;
       return $t1 > $t2 ? $t1 : $t2;
   }
   else
   {
       # No conflicts possible:
-      return $self->_calc_last_time($now,\@expanded);
+      return $self->_calc_previous_time($now,\@expanded);
   }
 }
 
@@ -1657,7 +1651,7 @@ sub _calc_time
 
 # Calulate the previous concrete date
 # for execution from a crontab entry
-sub _calc_last_time
+sub _calc_previous_time
 {
     my $self = shift;
     my $now = shift;
@@ -1688,7 +1682,7 @@ sub _calc_last_time
         # Check month:
         if ($expanded->[3]->[0] ne '*')
         {
-            unless (defined ($dest_mon = $self->_get_last_nearest($dest_mon,$expanded->[3])))
+            unless (defined ($dest_mon = $self->_get_previous_nearest($dest_mon,$expanded->[3])))
             {
                 $last_idx = $#{$expanded -> [3]};
                 $dest_mon = $expanded->[3]->[$last_idx];
@@ -1706,7 +1700,7 @@ sub _calc_last_time
             }
             else
             {
-                unless (defined ($dest_mday = $self->_get_last_nearest($dest_mday,$expanded->[2])))
+                unless (defined ($dest_mday = $self->_get_previous_nearest($dest_mday,$expanded->[2])))
                 {
                     # Last day matched is within the last month. ==> redo it
                     $dest_mday = $expanded->[2]->[$last_idx];
@@ -1730,7 +1724,7 @@ sub _calc_last_time
         if ($expanded->[4]->[0] ne '*')
         {
             $last_idx = $#{$expanded -> [4]};
-            $dest_wday = $self->_get_last_nearest($dest_wday,$expanded->[4]);
+            $dest_wday = $self->_get_previous_nearest($dest_wday,$expanded->[4]);
             $dest_wday = $expanded->[4]->[$last_idx] unless $dest_wday;
 
             my ($mon,$mday,$year);
@@ -1775,7 +1769,7 @@ sub _calc_last_time
             else
             {
                 #dbg "Checking for lat hour $dest_hour";
-                unless (defined ($dest_hour = $self->_get_last_nearest($dest_hour,$expanded->[1])))
+                unless (defined ($dest_hour = $self->_get_previous_nearest($dest_hour,$expanded->[1])))
                 {
                     # Hour to match is at the last day ==> redo it
                     $dest_hour = $expanded->[1]->[$last_idx];
@@ -1804,7 +1798,7 @@ sub _calc_last_time
             }
             else
             {
-                unless (defined ($dest_min = $self->_get_last_nearest($dest_min,$expanded->[0])))
+                unless (defined ($dest_min = $self->_get_previous_nearest($dest_min,$expanded->[0])))
                 {
                     # Minute to match is at the last hour ==> redo it
                     $dest_min = $expanded->[0]->[$last_idx];
@@ -1839,7 +1833,7 @@ sub _calc_last_time
                 }
                 else
                 {
-                    unless (defined ($dest_sec = $self->_get_last_nearest($dest_sec,$expanded->[5])))
+                    unless (defined ($dest_sec = $self->_get_previous_nearest($dest_sec,$expanded->[5])))
                     {
                         # Second to match is at the last minute ==> redo it
                         $dest_sec = $expanded->[5]->[$last_idx];
@@ -1865,7 +1859,7 @@ sub _calc_last_time
         }
 
         # Check special case of a leap year
-        $dest_year = $self->_check_last_leap_year($dest_year,$dest_mon,$dest_mday);
+        $dest_year = $self->_check_previous_leap_year($dest_year,$dest_mon,$dest_mday);
 
         # We did it !!
         my $date = sprintf("%2.2d:%2.2d:%2.2d %4.4d/%2.2d/%2.2d",
@@ -1916,20 +1910,19 @@ sub _get_nearest
   return undef;
 }
 
-# get last entry in list or 
-# undef if is the highest entry found
-sub _get_last_nearest 
-{ 
+# get last entry in list or undef if it is the highest entry found
+sub _get_previous_nearest
+{
    my $self = shift;
    my $x = shift;
    my $to_check = shift;
    my $result = undef;
    my $val = 0;
-   foreach my $i (0 .. $#$to_check) 
+   foreach my $i (0 .. $#$to_check)
    {
       $val = $$to_check[$i];
-      if ($val <= $x) 
-      {      
+      if ($val <= $x)
+      {
          if (defined $result)
          {
             if ($val > $result)
@@ -1943,26 +1936,26 @@ sub _get_last_nearest
          }
       }
   }
-  return $result;  
+  return $result;
 }
 
 # Check the given date value as leap year.
-# return - the last leap year.
-sub _check_last_leap_year($$$)
+# return - the previous leap year.
+sub _check_previous_leap_year($$$)
 {
    my $self = shift;
    my $year = shift;
    my $month = shift;
    my $day = shift;
-      
+
    if (($month == 2) && ($day == 29))
    {
       while (is_leap($year) == 0)
       {
          $year--;
       }
-   }   
-   return $year;      
+   }
+   return $year;
 }
 
 # prepare a list of object for pretty printing e.g. in the process list

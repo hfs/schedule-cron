@@ -44,7 +44,7 @@ plan tests => scalar(@entries);
 my $i;
 for ($i=0;$i<=$#entries;$i++) 
 {
-    my $t = $cron->get_last_execution_time($entries[$i]->[1],$entries[$i]->[0]);
+    my $t = $cron->get_previous_execution_time($entries[$i]->[1],$entries[$i]->[0]);
     print "# Cron-Entry: ",join(" ",@{$entries[$i]->[1]}),"\n";
     print "# Ref-Time:   ",scalar(localtime($entries[$i]->[0])),"\n";
     print "# Calculated: ",scalar(localtime($t)),"\n";
