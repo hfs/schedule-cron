@@ -1725,7 +1725,7 @@ sub _calc_previous_time
     my $now = shift;
     my $expanded = shift;
 
-    my $offset = 0;
+    my $offset = $self->{timeshift};
     my ($now_sec,$now_min,$now_hour,$now_mday,$now_mon,$now_wday,$now_year) =
       (localtime($now+$offset))[0,1,2,3,4,6,5];
     $now_mon++;
